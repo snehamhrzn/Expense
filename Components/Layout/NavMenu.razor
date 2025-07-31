@@ -1,0 +1,78 @@
+﻿@inject AuthenticationStateService authStateService
+@inject NavigationManager navigationManager
+@using Microsoft.AspNetCore.Components
+@using ExpenseTracker.Services
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a href="/dashboard">ExpenseTracker</a>
+    </div>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="dashboard" Match="NavLinkMatch.All">
+                <span class="bi bi-dashboard" aria-hidden="true"></span> Dashboard
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="transactions">
+                <span class="bi bi-transaction" aria-hidden="true"></span> Transactions
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="debts">
+                <span class="bi bi-debt" aria-hidden="true"></span> Debts
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="tags">
+                <span class="bi bi-tag" aria-hidden="true"></span> Tags
+            </NavLink>
+        </div>
+        <div class="nav-item mt-auto">
+            <button class="btn btn-logout" @onclick="LogoutUser">
+                Logout
+            </button>
+        </div>
+    </nav>
+</div>
+
+@code
+ 
+{
+
+    
+private
+ 
+void
+ 
+LogoutUser
+(
+)
+
+    
+{
+
+        authStateService
+.
+Logout
+(
+)
+;
+
+        navigationManager
+.
+NavigateTo
+(
+"/"
+)
+;
+
+    
+}
+
+}

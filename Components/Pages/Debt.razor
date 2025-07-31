@@ -1,0 +1,203 @@
+﻿@page "/debts"
+@using ExpenseTracker.Models
+@using ExpenseTracker.Services
+@inject AuthenticationStateService authStateService
+@inject NavigationManager navigationManager
+@inject ITransactionService transactionService
+@using MudBlazor
+
+
+@if (authStateService.IsAuthenticated())
+{
+    <div class="p-4">
+    <div class="d-flex justify-content-between">
+        <h2>Debt</h2>
+    </div>
+
+    <!-- Filters and Search Bar -->
+    <div class="my-3">
+
+        <div class="d-flex gap-2 mt-5">
+
+            <input type="text" class="form-control" placeholder="Search by Title or Tag"
+                   value="@searchTerm"
+                   @oninput="e => { searchTerm = e.Value.ToString(); ApplyFilters(); }" />
+
+            <div class="d-flex gap-2 align-items-center">
+                <div class="d-flex gap-2 align-items-center">
+                    <div>From:</div>
+                    <input type="date" class="form-control"
+                           value="@fromDate?.ToString("yyyy-MM-dd")"
+                           @onchange="e => {
+                       fromDate = string.IsNullOrEmpty(e.Value?.ToString())
+                           ? (DateTime?)null
+                           : DateTime.Parse(e.Value.ToString());
+                       ApplyFilters();
+                   }" />
+                </div>
+                <div class="d-flex gap-2 align-items-center">
+                    <div>To:</div>
+                    <input type="date" class="form-control"
+                           value="@toDate?.ToString("yyyy-MM-dd")"
+                           @onchange="e => {
+                       toDate = string.IsNullOrEmpty(e.Value?.ToString())
+                           ? (DateTime?)null
+                           : DateTime.Parse(e.Value.ToString());
+                       ApplyFilters();
+                   }" />
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Debt List -->
+    <div class="transaction-list">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>S.No</th>
+                    <th>Source</th>
+                    <th>Amount</th>
+                    <th>
+                        Due Date
+                        @if (currentSortOrder == "Ascending")
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward"
+                                           @onclick="ToggleSortOrder"
+                                           Color="Color.Primary"
+                                           Size="Size.Small" />
+                        }
+                        else
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward"
+                                           @onclick="ToggleSortOrder"
+                                           Color="Color.Primary"
+                                           Size="Size.Small" />
+                        }
+
+                    </th>
+                    <th>Status</th>
+                    <th/>
+                </tr>
+            </thead>
+                <tbody>
+                    @if (!filteredTransactions.Any())
+                    {
+                        <tr>
+                            <td colspan="6" class="no-debts">No debts</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var (transaction, index) in filteredTransactions.Select((t, i) => (t, i + 1)))
+                        {
+                            <tr>
+                                <td>@index</td>
+                                <td>@transaction.Source</td>
+                                <td>@($"{preferredCurrency} {transaction.Amount}")</td>
+                                <td>@transaction.DueDate?.ToString("yyyy-MM-dd")</td>
+                                <td>
+                                    <div class="chip @(transaction.Status == "Cleared" ? "cleared" : "pending")">
+                                        @(transaction.Status)
+                                    </div>
+                                </td>
+                                <td>
+                                    @if (transaction.Status == "Pending")
+                                    {
+                                        <button class="btn btn-sm btn-success" @onclick="() => ClearDebt(transaction)">Clear</button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+
+        </table>
+        </div>
+    </div>
+
+}
+@code {
+    private string preferredCurrency;
+    private string searchTerm;
+    private DateTime? fromDate;
+    private DateTime? toDate;
+    private List<Transaction> transactions = new List<Transaction>();
+    private List<Transaction> filteredTransactions = new List<Transaction>();
+    private string currentSortOrder = "Ascending";
+
+     private decimal TotalIncome => transactions.Where(t => t.Type == "Income").Sum(t => t.Amount);
+    private decimal TotalOutflows => transactions.Where(t => t.Type == "Expense").Sum(t => t.Amount);
+    private decimal TotalDebt => transactions.Where(t => t.Type == "Debt").Sum(t => t.Amount);
+
+    protected override async Task OnInitializedAsync()
+    {
+        transactions = await transactionService.GetTransactionsAsync();
+        ApplyFilters();
+        var authenticatedUser = authStateService.GetAuthenticatedUser();
+        if (authenticatedUser != null)
+        {
+            preferredCurrency = authenticatedUser.PreferredCurrency;
+        }
+    }
+
+    private void ApplyFilters()
+    {
+        filteredTransactions = transactions
+     .Where(t =>
+         // Apply active filter
+         (t.Type == "Debt" ) &&
+
+         // Apply search filter
+         (string.IsNullOrWhiteSpace(searchTerm) ||
+          t.Source.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+          t.Tag.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) &&
+
+         // Apply date range filter
+         (!fromDate.HasValue || t.DueDate >= fromDate) &&
+         (!toDate.HasValue || t.DueDate <= toDate))
+     .OrderBy(t => currentSortOrder == "Ascending"
+                      ? (t.DueDate.HasValue ? t.DueDate.Value.Ticks : long.MaxValue)
+                      : -(t.DueDate.HasValue ? t.DueDate.Value.Ticks : long.MaxValue))
+
+     .ToList();
+
+    }
+    
+
+    private void SetActiveFilter(string filterType)
+    {
+        ApplyFilters();
+    }
+
+    private void FilterTransaction() => ApplyFilters();
+
+    private void ToggleSortOrder()
+    {
+        currentSortOrder = currentSortOrder == "Ascending" ? "Descending" : "Ascending";
+        ApplyFilters();
+    }
+
+    private async Task ClearDebt(Transaction transaction)
+    {
+        try
+        {
+
+            if (TotalIncome > transaction.Amount)
+            {
+            // Update the status of the transaction
+            transaction.Status = "Cleared";
+
+            // Save the changes to the database or backend
+            await transactionService.UpdateTransactionAsync(transaction);}
+
+          
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error clearing debt: {ex.Message}");
+        }
+    }
+}
+

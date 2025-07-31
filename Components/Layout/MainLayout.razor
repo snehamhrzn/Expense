@@ -1,0 +1,42 @@
+﻿@inject AuthenticationStateService authStateService
+
+@inherits LayoutComponentBase
+
+<MudThemeProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<div class="page">
+    @if (authStateService.IsAuthenticated())
+    {
+        <div class="sidebar">
+            <NavMenu />
+        </div>
+    }
+    
+    <main>
+        @if (authStateService.IsAuthenticated())
+        {
+            <div class="top-row px-4">
+                <button class="account">
+                    <MudIcon Icon="@Icons.Material.Filled.AccountCircle" Style="width: 32px; height: 32px;" />
+                    Account
+                </button>
+            </div>
+        }
+        
+        <div class="main-layout">
+            <div class="content px-4">
+                @Body
+            </div>
+        </div>
+    </main>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        // You can add initialization logic here if needed
+        base.OnInitialized();
+    }
+}
